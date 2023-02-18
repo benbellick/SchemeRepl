@@ -5,6 +5,7 @@ module Main (main) where
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 import Control.Monad
+import Numeric
 
 data LispVal = Atom String
              | List [LispVal]
@@ -22,17 +23,21 @@ spaces = skipMany1 space
 parseString :: Parser LispVal
 parseString = do
     _ <- char '"'
-    x <- many (noneOf "\"\\" <|> (string "\\\"" >> return '"'))
+    x <- many (noneOf "\"\\" <|> parseEscapeChar)
     _ <- char '"'
     return $ String x
 
 parseEscapeChar :: Parser Char
-parseEscapeChar = 
-    (string "\\\"" >> return '"')
-    --(string "\\n" >> return '\n')
-    --(string "\\\\" >> return '\\' )
-    --(string "\\r" >> return '\r') <|>
-    --(string "\\t" >> return '\t') <|>
+parseEscapeChar = do
+    _ <- char '\\'
+    x <- oneOf "\"nrt\\"
+    return $ charToEscape x
+    where charToEscape c = case c of 
+            '\\' -> '\\'
+            'n' -> '\n'
+            'k' -> '\r'
+            't' -> '\t'
+            otherwise -> ' '
 
 parseAtom :: Parser LispVal
 parseAtom = do
@@ -44,23 +49,35 @@ parseAtom = do
         "#f" -> Bool False
         _    -> Atom atom
 
+parseDecNumber :: Parser LispVal
+parseDecNumber = liftM (Number . read) $ many1 digit
+
+parseNondecNumber :: Parser LispVal
+parseNondecNumber = do
+    _ <- char '#'
+    b <- oneOf "bodx"
+    n <- many1 digit
+    return $ Number $ toNum b n
+    where toNum base num = case base of
+            'd' -> read num
+            'o' -> fst . head $ readOct num {-- this seems unsafe --}
+            'x' -> fst . head $ readHex num {-- this seems unsafe --}
+            'b' -> fst . head $ readBin num {-- this seems unsafe --}
+
 parseNumber :: Parser LispVal
-parseNumber = liftM (Number . read) $ many1 digit
-{--parseNumber = do
-    d <- many1 digit
-    return . Number . read $ d
---}
---parseNumber = many1 digit >>= (\ d -> return . Number . read $ d)
+parseNumber = parseDecNumber <|> parseNondecNumber
 
 parseExpr :: Parser LispVal
-parseExpr = parseAtom
+parseExpr = parseNumber
         <|> parseString
-        <|> parseNumber
+        <|> parseAtom
 
 readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of
     Left err -> "No match: " ++ show err
-    Right (String s) -> "Found value: " ++ s
+    Right (String s) -> "Found value (string): " ++ s
+    Right (Number i) -> "Found value (int): " ++ show i
+    Right (Atom a) -> "Found value (atom): " ++ a
     Right val -> "Found value (not string)"
 
 main :: IO ()
