@@ -22,9 +22,17 @@ spaces = skipMany1 space
 parseString :: Parser LispVal
 parseString = do
     _ <- char '"'
-    x <- many (noneOf "\"")
+    x <- many (noneOf "\"\\" <|> (string "\\\"" >> return '"'))
     _ <- char '"'
     return $ String x
+
+parseEscapeChar :: Parser Char
+parseEscapeChar = 
+    (string "\\\"" >> return '"')
+    --(string "\\n" >> return '\n')
+    --(string "\\\\" >> return '\\' )
+    --(string "\\r" >> return '\r') <|>
+    --(string "\\t" >> return '\t') <|>
 
 parseAtom :: Parser LispVal
 parseAtom = do
@@ -38,6 +46,11 @@ parseAtom = do
 
 parseNumber :: Parser LispVal
 parseNumber = liftM (Number . read) $ many1 digit
+{--parseNumber = do
+    d <- many1 digit
+    return . Number . read $ d
+--}
+--parseNumber = many1 digit >>= (\ d -> return . Number . read $ d)
 
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
@@ -47,7 +60,8 @@ parseExpr = parseAtom
 readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of
     Left err -> "No match: " ++ show err
-    Right _val -> "Found value"
+    Right (String s) -> "Found value: " ++ s
+    Right val -> "Found value (not string)"
 
 main :: IO ()
 main = do
