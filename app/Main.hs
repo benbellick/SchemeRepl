@@ -30,7 +30,7 @@ spaces = skipMany1 space
 parseChar :: Parser LispVal
 parseChar = do
     _ <- char '#'
-    _ <- char '\\'
+    _ <- try (char '\\')
     x <- many (noneOf " \t\n\r") {--refactor?--}
     return $ charLitToChar x
             
@@ -43,7 +43,7 @@ charLitToChar cs = Char
 
 parseString :: Parser LispVal
 parseString = do
-    _ <- char '"'
+    _ <- try (char '"')
     x <- many (noneOf "\"\\" <|> parseEscapeChar)
     _ <- char '"'
     return $ String x
@@ -62,7 +62,7 @@ parseEscapeChar = do
 
 parseAtom :: Parser LispVal
 parseAtom = do
-    first <- letter <|> symbol
+    first <- try letter <|> symbol
     rest  <- many (letter <|> digit <|> symbol)
     let atom = first:rest
     return $ case atom of
@@ -87,6 +87,7 @@ parseNondecNumber = do
 
 extractInteger :: LispVal -> Integer
 extractInteger (Number n) = n
+extractInteger _ = error "only works with numbers"
 
 parseRational :: Parser LispVal
 parseRational = do
@@ -105,6 +106,7 @@ parseFloat = do
 extractFloat :: LispVal -> Float
 extractFloat (Float f) = f
 extractFloat (Number i) = fromInteger i
+extractFloat _ = error "Only works with float and number"
 
 parseComplex :: Parser LispVal
 parseComplex = do
@@ -123,9 +125,31 @@ parseNumber = try parseComplex
 
 parseExpr :: Parser LispVal
 parseExpr = parseNumber
-        <|> try parseChar
-        <|> try parseString
-        <|> try parseAtom
+        <|> parseChar
+        <|> parseString
+        <|> parseAtom
+        <|> parseQuoted
+        <|> do 
+            _ <- char '('
+            x <- try parseList <|> parseDottedList
+            _ <- char ')'
+            return x
+
+parseList :: Parser LispVal
+parseList = liftM List $ sepBy parseExpr spaces
+
+parseDottedList :: Parser LispVal
+parseDottedList = do
+    h <- endBy parseExpr spaces
+    t <- char '.' >> spaces >> parseExpr
+    return $ DottedList h t
+
+--Parse syntactic sugar of single quote for 
+parseQuoted :: Parser LispVal
+parseQuoted = do 
+    _ <- char '\''
+    x <- parseExpr
+    return $ List [Atom "quote", x]
 
 readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of
@@ -137,6 +161,7 @@ readExpr input = case parse parseExpr "lisp" input of
     Right (Float f) -> "Found value (Float): " ++ show f
     Right (Complex c) -> "Found value (Complex): " ++ show c
     Right (Rational r) -> "Found value (Rational): " ++ show r
+    Right (List l ) -> "Found value (List)"
     Right _val -> "Found value (not string)"
 
 main :: IO ()
