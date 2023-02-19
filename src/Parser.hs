@@ -147,3 +147,23 @@ parseQuoted = do
     _ <- char '\''
     x <- parseExpr
     return $ List [Atom "quote", x]
+
+
+showVal :: LispVal -> String
+showVal (String s) = "\"" ++ s ++ "\""
+showVal (Atom a ) = a
+showVal (Number n) = show n
+showVal (Bool True) = "#t"
+showVal (Bool False) = "#f"
+showVal (List l) = "(" ++ unwordsList l ++ ")"
+showVal (DottedList h t) = "(" ++ unwordsList h ++ " . " ++ showVal t ++ ")"
+showVal (Rational r) = show r
+showVal (Float f) = show f
+showVal (Complex c) = show c
+showVal (Char c) = show c
+
+unwordsList :: [LispVal] -> String
+unwordsList = unwords . map showVal
+
+instance Show LispVal where show = showVal
+
