@@ -42,8 +42,8 @@ primitives = [
               ("string?", unaryOp isString),
               ("number?", unaryOp isNumber),
               ("bool?", unaryOp isBool),
-              ("symbol->string", unaryOp symbolToString),
-              ("string->symbol", unaryOp stringToSymbol),
+              ("symbol->string",  symbolToString),
+              ("string->symbol",  stringToSymbol),
               ("string=?", strBoolBinop (==)),
               ("string<?", strBoolBinop (<)),
               ("string>?", strBoolBinop (>)),
@@ -54,13 +54,13 @@ primitives = [
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinop _ [] = throwError $ NumArgs 2 []
-numericBinop _ val@[x] = throwError $NumArgs 2 val
+numericBinop _ val@[_] = throwError $ NumArgs 2 val
 numericBinop op params = mapM unpackNum params >>= return . Number . foldl1 op
 
 unaryOp :: (LispVal -> LispVal) -> [LispVal] -> ThrowsError LispVal
 unaryOp _ [] = throwError $ NumArgs 1 []
 unaryOp op [val] = return $ op val
-unaryOp op val = throwError $ NumArgs 1 val
+unaryOp _ val = throwError $ NumArgs 1 val
 
 boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
 boolBinop unpacker op args = if length args /= 2 
@@ -69,8 +69,11 @@ boolBinop unpacker op args = if length args /= 2
                                       left <- unpacker $ args !! 0
                                       right <- unpacker $ args !! 1
                                       return $ Bool $ left `op` right
+numBoolBinop :: (Integer -> Integer -> Bool) -> [LispVal] -> ThrowsError LispVal
 numBoolBinop  = boolBinop unpackNum
+strBoolBinop :: (String -> String -> Bool) -> [LispVal] -> ThrowsError LispVal
 strBoolBinop  = boolBinop unpackStr
+boolBoolBinop :: (Bool -> Bool -> Bool) -> [LispVal] -> ThrowsError LispVal
 boolBoolBinop = boolBinop unpackBool
 
 unpackNum :: LispVal -> ThrowsError Integer
@@ -108,6 +111,11 @@ isNumber _ = Bool False
 isBool (Bool _) = Bool True
 isBool _ = Bool False
 
-symbolToString, stringToSymbol :: LispVal -> LispVal
-symbolToString (Atom a) = String a
-stringToSymbol (String s) = Atom s
+symbolToString, stringToSymbol :: [LispVal] -> ThrowsError LispVal
+symbolToString [Atom a] = return . String $ a
+symbolToString [notAtom] = throwError $ TypeMismatch "symbol" notAtom
+symbolToString val = throwError $ NumArgs 1 val
+
+stringToSymbol [String s] = return . Atom $ s
+stringToSymbol [notString] = throwError $ TypeMismatch "string" notString
+stringToSymbol val = throwError $ NumArgs 1 val
