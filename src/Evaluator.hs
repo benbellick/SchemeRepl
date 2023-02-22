@@ -14,6 +14,12 @@ eval val@(Complex _) = return val
 eval val@(Char _) = return val
 eval val@(Bool _) = return val
 eval (List [Atom "quote", val]) = return val
+eval (List [Atom "if", cond, consq, alt]) = do
+  result <- eval cond
+  case result of
+    Bool True -> eval consq
+    Bool False -> eval alt
+    _ -> throwError $ TypeMismatch "bool" cond
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
