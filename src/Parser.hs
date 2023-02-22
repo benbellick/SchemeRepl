@@ -40,7 +40,7 @@ charLitToChar cs = Char
 
 parseString :: Parser LispVal
 parseString = do
-    _ <- try (char '"')
+    _ <- char '"'
     x <- many (noneOf "\"\\" <|> parseEscapeChar)
     _ <- char '"'
     return $ String x
@@ -59,7 +59,7 @@ parseEscapeChar = do
 
 parseAtom :: Parser LispVal
 parseAtom = do
-    first <- try letter <|> symbol
+    first <- letter <|> symbol
     rest  <- many (letter <|> digit <|> symbol)
     let atom = first:rest
     return $ case atom of
@@ -122,9 +122,9 @@ parseNumber = try parseComplex
 
 parseExpr :: Parser LispVal
 parseExpr = parseNumber
+        <|> parseAtom
         <|> parseChar
         <|> parseString
-        <|> parseAtom
         <|> parseQuoted
         <|> do 
             _ <- char '('
