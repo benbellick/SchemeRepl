@@ -23,6 +23,14 @@ apply func args = maybe (throwError $ NotFunction "Unrecognized primitive functi
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives = [
+              ("=", numBoolBinop (==)),
+              ("<", numBoolBinop (<)),
+              (">", numBoolBinop (>)),
+              ("/=", numBoolBinop (/=)),
+              (">=", numBoolBinop (>=)),
+              ("<=", numBoolBinop (<=)),
+              ("&&", boolBoolBinop (&&)),
+              ("||", boolBoolBinop (||)),
               ("+", numericBinop (+)),
               ("-", numericBinop (-)),
               ("*", numericBinop (*)),
@@ -35,8 +43,13 @@ primitives = [
               ("number?", unaryOp isNumber),
               ("bool?", unaryOp isBool),
               ("symbol->string", unaryOp symbolToString),
-              ("string->symbol", unaryOp stringToSymbol)
-             ]
+              ("string->symbol", unaryOp stringToSymbol),
+              ("string=?", strBoolBinop (==)),
+              ("string<?", strBoolBinop (<)),
+              ("string>?", strBoolBinop (>)),
+              ("string<=?", strBoolBinop (<=)),
+              ("string>=?", strBoolBinop (>=))
+              ]
 
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
@@ -49,6 +62,17 @@ unaryOp _ [] = throwError $ NumArgs 1 []
 unaryOp op [val] = return $ op val
 unaryOp op val = throwError $ NumArgs 1 val
 
+boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinop unpacker op args = if length args /= 2 
+                             then throwError $ NumArgs 2 args
+                             else do
+                                      left <- unpacker $ args !! 0
+                                      right <- unpacker $ args !! 1
+                                      return $ Bool $ left `op` right
+numBoolBinop  = boolBinop unpackNum
+strBoolBinop  = boolBinop unpackStr
+boolBoolBinop = boolBinop unpackBool
+
 unpackNum :: LispVal -> ThrowsError Integer
 unpackNum (Number n) = return n
 --unpackNum (Rational n) = n
@@ -60,6 +84,16 @@ unpackNum (String n) = let parsed = reads n :: [(Integer, String)] in --only rea
         else return $ fst $ parsed !! 0
 unpackNum (List [n]) = unpackNum n
 unpackNum notNum = throwError $ TypeMismatch "number" notNum
+
+unpackStr :: LispVal -> ThrowsError String
+unpackStr (String s) = return s
+unpackStr (Number s) = return $ show s
+unpackStr (Bool s)   = return $ show s
+unpackStr notString  = throwError $ TypeMismatch "string" notString
+
+unpackBool :: LispVal -> ThrowsError Bool
+unpackBool (Bool b) = return b
+unpackBool notBool  = throwError $ TypeMismatch "boolean" notBool
 
 isSymbol, isString, isNumber, isBool :: LispVal -> LispVal
 isSymbol (Atom _) = Bool True
