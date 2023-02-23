@@ -21,6 +21,7 @@ eval (List [Atom "if", cond, consq, alt]) = do
     Bool False -> eval alt
     _ -> throwError $ TypeMismatch "bool" cond
 eval (List (Atom "cond":xs)) = cond xs
+eval (List (Atom "case":x:xs)) = eval x >>= caseSch xs
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
@@ -193,6 +194,7 @@ equal [arg1, arg2] = do
       return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
 
+-- Later refactor, cond is just caseSch with #t instead of targetValue
 cond :: [LispVal] -> ThrowsError LispVal
 cond [] = throwError $ Default "No viable alternative in cond"
 cond [List ((Atom "else"):xs)] = do
@@ -207,3 +209,20 @@ cond ((List x):xs) = do
     Bool False -> cond xs
     badArg -> throwError $ TypeMismatch "boolean" badArg
 cond badArg = throwError $ TypeMismatch "list of lists" $ List badArg
+
+caseSch :: [LispVal] -> LispVal -> ThrowsError LispVal
+caseSch [] _ = throwError $ Default "No viable alternative in case"
+caseSch [List ((Atom "else"):xs)] _ = do
+  results <- mapM eval xs
+  return $ last results
+caseSch (x:xs) targetVal = do
+  e <- eqv [targetVal, x]
+  case e of
+    Bool False -> caseSch xs targetVal
+    Bool True -> do
+      evals <- mapM eval $ tail xs
+      return $ last evals
+       
+
+
+
