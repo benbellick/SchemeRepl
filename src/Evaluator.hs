@@ -20,6 +20,7 @@ eval (List [Atom "if", cond, consq, alt]) = do
     Bool True -> eval consq
     Bool False -> eval alt
     _ -> throwError $ TypeMismatch "bool" cond
+eval (List (Atom "cond":xs)) = cond xs
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
@@ -179,9 +180,30 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
         `catchError` (const $ return False)
 
 equal :: [LispVal] -> ThrowsError LispVal
+equal [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) &&
+                                                   (all eqvPair $ zip arg1 arg2)
+         where eqvPair (x1, x2) = case equal [x1, x2] of
+                                    Left _err -> False
+                                    Right (Bool val) -> val
+                                    
 equal [arg1, arg2] = do
       primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) 
                          [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
       eqvEquals <- eqv [arg1, arg2]
       return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
+
+cond :: [LispVal] -> ThrowsError LispVal
+cond [] = throwError $ Default "No viable alternative in cond"
+cond [List ((Atom "else"):xs)] = do
+  results <- mapM eval xs
+  return $ last results
+cond ((List x):xs) = do
+  result <- eval . head $ x
+  case result of
+    Bool True -> do
+      evals <- mapM eval $ tail x
+      return $ last evals
+    Bool False -> cond xs
+    badArg -> throwError $ TypeMismatch "boolean" badArg
+cond badArg = throwError $ TypeMismatch "list of lists" $ List badArg
