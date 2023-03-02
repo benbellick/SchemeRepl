@@ -138,7 +138,7 @@ parseQuoted = do
     x <- parseExpr
     return $ List [Atom "quote", x]
 
-
+-- Maybe should be moved to Types module
 showVal :: LispVal -> String
 showVal (String s) = "\"" ++ s ++ "\""
 showVal (Atom a ) = a
@@ -151,6 +151,13 @@ showVal (Rational r) = show r
 showVal (Float f) = show f
 showVal (Complex c) = show c
 showVal (Char c) = show c
+showVal (PrimitiveFunc _) = "<primitive>"
+showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
+  "(lambda (" ++ unwords (map show args) ++
+    (case varargs of
+       Nothing -> ""
+       Just arg -> " . " ++ arg
+    ) ++ ") ... )"
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
