@@ -3,27 +3,31 @@ module Evaluator (eval) where
 
 import Parser
 import Error
+import Environment
 import Control.Monad.Except
 
-eval :: LispVal -> ThrowsError LispVal
-eval val@(String _) = return val
-eval val@(Number _) = return val
-eval val@(Rational _) = return val
-eval val@(Float _) = return val
-eval val@(Complex _) = return val
-eval val@(Char _) = return val
-eval val@(Bool _) = return val
-eval (List [Atom "quote", val]) = return val
-eval (List [Atom "if", cond, consq, alt]) = do
-  result <- eval cond
+eval :: Env -> LispVal -> IOThrowsError LispVal
+eval _env val@(String _) = return val
+eval _env val@(Number _) = return val
+eval _env val@(Rational _) = return val
+eval _env val@(Float _) = return val
+eval _env val@(Complex _) = return val
+eval _env val@(Char _) = return val
+eval _env val@(Bool _) = return val
+eval  env (Atom var) = getVar env var
+eval _env (List [Atom "quote", val]) = return val
+eval env (List [Atom "if", cond, consq, alt]) = do
+  result <- eval env cond
   case result of
-    Bool True -> eval consq
-    Bool False -> eval alt
+    Bool True -> eval env consq
+    Bool False -> eval env alt
     _ -> throwError $ TypeMismatch "bool" cond
-eval (List (Atom "cond":xs)) = cond xs
-eval (List (Atom "case":x:xs)) = eval x >>= caseSch xs
-eval (List (Atom func : args)) = mapM eval args >>= apply func
-eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+--eval _env (List (Atom "cond":xs)) = cond xs
+--eval _env (List (Atom "case":x:xs)) = eval x >>= caseSch xs
+eval  env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
+eval  env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
+eval env (List (Atom func : args)) = mapM (eval env)  args >>= liftThrows . apply func
+eval _env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func)
@@ -194,11 +198,12 @@ equal [arg1, arg2] = do
       return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
 
+{-
 -- Later refactor, cond is just caseSch with #t instead of targetValue
-cond :: [LispVal] -> ThrowsError LispVal
-cond [] = throwError $ Default "No viable alternative in cond"
-cond [List ((Atom "else"):xs)] = do
-  results <- mapM eval xs
+cond :: Env -> [LispVal] -> IOThrowsError LispVal
+cond _env [] = throwError $ Default "No viable alternative in cond"
+cond env [List ((Atom "else"):xs)] = do
+  results <- mapM (eval env) xs
   return $ last results
 cond ((List x):xs) = do
   result <- eval . head $ x
@@ -222,7 +227,4 @@ caseSch (x:xs) targetVal = do
     Bool True -> do
       evals <- mapM eval $ tail xs
       return $ last evals
-       
-
-
-
+ -}

@@ -1,4 +1,15 @@
-module Environment(Env) where
+module Environment(
+  Env,
+  nullEnv,
+  IOThrowsError,
+  liftThrows,
+  runIOThrows,
+  isBound,
+  getVar,
+  setVar,
+  defineVar,
+  bindVars
+) where
 
 import Parser
 import Error
