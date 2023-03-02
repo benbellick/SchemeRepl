@@ -1,6 +1,4 @@
-module Environment(
-  Env,
-  nullEnv,
+module EnvManage(
   IOThrowsError,
   liftThrows,
   runIOThrows,
@@ -15,11 +13,7 @@ import Parser
 import Error
 import Control.Monad.Except
 import Data.IORef
-
-type Env = IORef [(String, IORef LispVal)]
-
-nullEnv :: IO Env
-nullEnv = newIORef []
+import Types
 
 type IOThrowsError = ExceptT LispError IO
 

@@ -1,17 +1,8 @@
-module Error(LispError(..), ThrowsError, trapError, extractValue) where
+module Error(trapError, extractValue) where
 
 import Parser (LispVal)
-import Text.Parsec (ParseError)
+import Types
 import Control.Monad.Except
-
-data LispError = NumArgs Integer [LispVal]
-               | TypeMismatch String LispVal
-               | Parser ParseError
-               | BadSpecialForm String LispVal
-               | NotFunction String String
-               | UnboundVar String String
-               | Default String
-
 
 showError :: LispError -> String
 showError (UnboundVar msg varname) = msg ++ ": " ++ varname
@@ -24,9 +15,6 @@ showError (Default msg) = "Default error: " ++ msg
 
 instance Show LispError where show = showError
 
-type ThrowsError = Either LispError
-
---trapError :: ThrowsError String -> ThrowsError String
 trapError :: (MonadError e m, Show e) => m String -> m String
 trapError action = catchError action (return . show)
 

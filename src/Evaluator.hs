@@ -1,14 +1,15 @@
 {-# LANGUAGE ExistentialQuantification #-}
 module Evaluator (eval) where
 
+import Types
 import Parser
 import Error
-import Environment
+import EnvManage
 import Control.Monad.Except
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval _env val@(String _) = return val
-eval _env val@(Number _) = return val
+eval _penv val@(Number _) = return val
 eval _env val@(Rational _) = return val
 eval _env val@(Float _) = return val
 eval _env val@(Complex _) = return val

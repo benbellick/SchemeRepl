@@ -1,7 +1,8 @@
+import Types
 import Parser
 import Evaluator
 import Error
-import Environment
+import EnvManage
 import System.Environment
 import System.IO
 import Text.ParserCombinators.Parsec hiding (spaces)

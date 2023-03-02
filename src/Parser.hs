@@ -6,17 +6,7 @@ import Numeric
 import Data.Char
 import Data.Complex
 import Data.Ratio
-
-data LispVal = Atom String
-             | List [LispVal]
-             | DottedList [LispVal] LispVal
-             | Number Integer
-             | Rational Rational
-             | Float Float
-             | Complex (Complex Float)
-             | Char Char
-             | String String
-             | Bool Bool
+import Types
 
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
