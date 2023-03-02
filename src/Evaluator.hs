@@ -16,17 +16,17 @@ eval _env val@(Char _) = return val
 eval _env val@(Bool _) = return val
 eval  env (Atom var) = getVar env var
 eval _env (List [Atom "quote", val]) = return val
-eval env (List [Atom "if", cond, consq, alt]) = do
+eval  env (List [Atom "if", cond, consq, alt]) = do
   result <- eval env cond
   case result of
     Bool True -> eval env consq
     Bool False -> eval env alt
     _ -> throwError $ TypeMismatch "bool" cond
---eval _env (List (Atom "cond":xs)) = cond xs
---eval _env (List (Atom "case":x:xs)) = eval x >>= caseSch xs
+eval  env (List (Atom "cond":xs)) = cond env xs
+eval  env (List (Atom "case":x:xs)) = eval env x >>= caseSch env xs
 eval  env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
 eval  env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
-eval env (List (Atom func : args)) = mapM (eval env)  args >>= liftThrows . apply func
+eval  env (List (Atom func : args)) = mapM (eval env)  args >>= liftThrows . apply func
 eval _env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
@@ -198,33 +198,33 @@ equal [arg1, arg2] = do
       return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs 2 badArgList
 
-{-
 -- Later refactor, cond is just caseSch with #t instead of targetValue
 cond :: Env -> [LispVal] -> IOThrowsError LispVal
 cond _env [] = throwError $ Default "No viable alternative in cond"
 cond env [List ((Atom "else"):xs)] = do
   results <- mapM (eval env) xs
   return $ last results
-cond ((List x):xs) = do
-  result <- eval . head $ x
+cond env ((List x):xs) = do
+  result <- (eval env) . head $ x
   case result of
     Bool True -> do
-      evals <- mapM eval $ tail x
+      evals <- mapM (eval env) $ tail x
       return $ last evals
-    Bool False -> cond xs
+    Bool False -> cond env xs
     badArg -> throwError $ TypeMismatch "boolean" badArg
-cond badArg = throwError $ TypeMismatch "list of lists" $ List badArg
+cond _env badArg = throwError $ TypeMismatch "list of lists" $ List badArg
 
-caseSch :: [LispVal] -> LispVal -> ThrowsError LispVal
-caseSch [] _ = throwError $ Default "No viable alternative in case"
-caseSch [List ((Atom "else"):xs)] _ = do
-  results <- mapM eval xs
+caseSch :: Env -> [LispVal] -> LispVal -> IOThrowsError LispVal
+caseSch env [] _ = throwError $ Default "No viable alternative in case"
+caseSch env [List ((Atom "else"):xs)] _ = do
+  results <- mapM (eval env) xs
   return $ last results
-caseSch (x:xs) targetVal = do
-  e <- eqv [targetVal, x]
+
+caseSch env (x:xs) targetVal = do
+  e <- liftThrows $ eqv [targetVal, x]
   case e of
-    Bool False -> caseSch xs targetVal
+    Bool False -> caseSch env xs targetVal
     Bool True -> do
-      evals <- mapM eval $ tail xs
+      evals <- mapM (eval env) $ tail xs
       return $ last evals
- -}
+
