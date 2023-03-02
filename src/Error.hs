@@ -26,7 +26,8 @@ instance Show LispError where show = showError
 
 type ThrowsError = Either LispError
 
-trapError :: ThrowsError String -> ThrowsError String
+--trapError :: ThrowsError String -> ThrowsError String
+trapError :: (MonadError e m, Show e) => m String -> m String
 trapError action = catchError action (return . show)
 
 extractValue :: ThrowsError a -> a
