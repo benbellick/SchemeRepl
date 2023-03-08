@@ -18,6 +18,7 @@ eval _env val@(Complex _) = return val
 eval _env val@(Char _) = return val
 eval _env val@(Bool _) = return val
 eval  env (Atom var) = getVar env var
+eval  env (List [Atom "load", String filename]) = load filename >>= liftM last . mapM (eval env)
 eval _env (List [Atom "quote", val]) = return val
 eval  env (List [Atom "if", cond, consq, alt]) = do
   result <- eval env cond
@@ -124,6 +125,19 @@ closePort _           = return $ Bool False
 readProc :: [LispVal] -> IOThrowsError LispVal
 readProc [] = readProc [Port stdin]
 readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . readExpr
+
+writeProc :: [LispVal] -> IOThrowsError LispVal
+writeProc [obj] = writeProc [obj, Port stdout]
+writeProc [obj, Port port] = liftIO $ hPrint port obj >> (return $ Bool True)
+
+readContents :: [LispVal] -> IOThrowsError LispVal
+readContents [String filename] = liftM String $ liftIO $ readFile filename
+
+load :: String -> IOThrowsError [LispVal]
+load filename = (liftIO $ readFile filename) >>= liftThrows . readExprList
+
+readAll :: [LispVal] -> IOThrowsError LispVal
+readAll [String filename] = liftM List $ load filename
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinop _ [] = throwError $ NumArgs 2 []

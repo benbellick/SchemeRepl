@@ -12,7 +12,7 @@ flushStr :: String -> IO ()
 flushStr str = putStr str >> hFlush stdout
 
 readPrompt :: String -> IO String
-readPrompt prompt = flushStr prompt >> getLine)
+readPrompt prompt = flushStr prompt >> getLine
 
 evalStr :: Env -> String -> IO String
 evalStr env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env
@@ -27,8 +27,11 @@ until_ predicate prompt action = do
   then return ()
   else action val >> until_ predicate prompt action
 
-runOne :: String -> IO ()
-runOne expr = primitiveBindings >>= flip evalAndPrint expr
+runOne :: [String] -> IO ()
+--runOne expr = primitiveBindings >>= flip evalAndPrint expr
+runOne args = do
+  env <- primitiveBindings >>= flip bindVars [("args", List $ map String $ drop 1 args)]
+  (runIOThrows $ liftM show $ eval env (List [Atom "load", String (args !! 0)])) >>= hPutStrLn stderr
 
 runRepl :: IO ()
 runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "Lisp>>> ") . evalAndPrint
@@ -37,7 +40,4 @@ runRepl = primitiveBindings >>= until_ (== "quit") (readPrompt "Lisp>>> ") . eva
 main :: IO ()
 main = do
   args <- getArgs
-  case length args of
-    0 -> runRepl
-    1 -> runOne $ args !! 0
-    _ -> putStrLn "Program requires 0 args for interactive or 1 arg for eval and print"
+  if length args == 0 then runRepl else runOne $ args
