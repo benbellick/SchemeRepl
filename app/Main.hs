@@ -1,7 +1,7 @@
 import Types
 import Parser
+import Reader
 import Evaluator
-import Error
 import EnvManage
 import System.Environment
 import System.IO
@@ -12,12 +12,7 @@ flushStr :: String -> IO ()
 flushStr str = putStr str >> hFlush stdout
 
 readPrompt :: String -> IO String
-readPrompt prompt = flushStr prompt >> getLine
-
-readExpr :: String -> ThrowsError LispVal
-readExpr input = case parse parseExpr "lisp" input of
-    Left err -> throwError $ Parser err
-    Right val -> return val
+readPrompt prompt = flushStr prompt >> getLine)
 
 evalStr :: Env -> String -> IO String
 evalStr env expr = runIOThrows $ liftM show $ (liftThrows $ readExpr expr) >>= eval env

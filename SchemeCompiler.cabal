@@ -29,6 +29,7 @@ library
       Error
       Evaluator
       Parser
+      Reader
       Types
   other-modules:
       Paths_SchemeCompiler

@@ -1,4 +1,4 @@
-module Parser (parseExpr, LispVal(..)) where
+module Parser (parseExpr, LispVal(..), spaces) where
 
 import Text.ParserCombinators.Parsec hiding (spaces)
 import Control.Monad
@@ -158,6 +158,9 @@ showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
        Nothing -> ""
        Just arg -> " . " ++ arg
     ) ++ ") ... )"
+showVal (IOFunc _) = "<IO primitive>"
+showVal (Port _) = "<IO port>"
+
 
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal

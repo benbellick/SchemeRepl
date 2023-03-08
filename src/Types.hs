@@ -2,10 +2,12 @@ module Types(LispVal(..), LispError(..), ThrowsError, Env, nullEnv)  where
 
 import Data.IORef
 import Text.Parsec (ParseError)
-import Numeric
-import Data.Char
+import Numeric()
+import Data.Char()
 import Data.Complex
-import Data.Ratio
+import Data.Ratio()
+import System.IO
+import Control.Monad.Except
 
 type Env = IORef [(String, IORef LispVal)]
 
@@ -27,6 +29,8 @@ data LispVal = Atom String
                     , vararg  :: (Maybe String)
                     , body    :: [LispVal]
                     , closure :: Env }
+            | IOFunc ([LispVal] -> IOThrowsError LispVal)
+            | Port Handle
 
 
 data LispError = NumArgs Integer [LispVal]
@@ -38,3 +42,4 @@ data LispError = NumArgs Integer [LispVal]
                | Default String
 
 type ThrowsError = Either LispError
+type IOThrowsError = ExceptT LispError IO
