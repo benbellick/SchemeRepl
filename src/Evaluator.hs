@@ -18,12 +18,12 @@ eval _env val@(Bool _) = return val
 eval  env (Atom var) = getVar env var
 eval  env (List [Atom "load", String filename]) = load filename >>= liftM last . mapM (eval env)
 eval _env (List [Atom "quote", val]) = return val
-eval  env (List [Atom "if", cond, consq, alt]) = do
-  result <- eval env cond
+eval  env (List [Atom "if", condition, consq, alt]) = do
+  result <- eval env condition
   case result of
     Bool True -> eval env consq
     Bool False -> eval env alt
-    _ -> throwError $ TypeMismatch "bool" cond
+    _ -> throwError $ TypeMismatch "bool" condition
 eval  env (List (Atom "cond":xs)) = cond env xs
 eval  env (List (Atom "case":x:xs)) = eval env x >>= caseSch env xs
 eval  env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
@@ -38,7 +38,10 @@ eval _env badForm = throwError $ BadSpecialForm "Unrecognized special form" badF
 
 makeFunc :: Maybe String -> Env -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
 makeFunc varArgs env params body = return $ NonPrimFunc $ Func (map show params) varArgs body env
+
+makeNormalFunc :: Env -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
 makeNormalFunc = makeFunc Nothing
+
 makeVarArgs :: LispVal -> Env -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
 makeVarArgs = makeFunc . Just . show
 
@@ -55,6 +58,7 @@ apply (NonPrimFunc ( Func params varargs body closure)) args =
           Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
           Nothing -> return env
 apply (IOFunc f) args = f args
+apply nonF _ = throwError $ TypeMismatch "first arg must be a function" nonF
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives = [
@@ -105,9 +109,9 @@ ioPrimitives = [("apply", applyProc),
                ]
 
 primitiveBindings :: IO Env
-primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc)       ioPrimitives ++
-                                                 map (makeFunc PrimitiveFunc) primitives)
-                    where makeFunc cstr (var, func) = (var, cstr func)
+primitiveBindings = nullEnv >>= (flip bindVars $ map (makeGenFunc IOFunc)       ioPrimitives ++
+                                                 map (makeGenFunc PrimitiveFunc) primitives)
+                    where makeGenFunc cstr (var, func) = (var, cstr func)
 
 applyProc :: [LispVal] -> IOThrowsError LispVal
 applyProc [func, List args] = apply func args
@@ -277,7 +281,9 @@ equal [arg1, arg2] = do
       primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) 
                          [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
       eqvEquals <- eqv [arg1, arg2]
-      return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
+      return $ Bool $ (primitiveEquals || getBool eqvEquals)
+      where getBool (Bool x) = x
+            getBool _ = False {- really should throw error -}
 equal badArgList = throwError $ NumArgs 2 badArgList
 
 -- Later refactor, cond is just caseSch with #t instead of targetValue

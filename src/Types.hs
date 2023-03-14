@@ -42,7 +42,7 @@ showVal (Float f) = show f
 showVal (Complex c) = show c
 showVal (Char c) = show c
 showVal (PrimitiveFunc _) = "<primitive>"
-showVal (NonPrimFunc Func {params = args, vararg = varargs}) =
+showVal (NonPrimFunc Func {fParams = args, fVararg = varargs}) =
   "(lambda (" ++ unwords (map show args) ++
     (case varargs of
        Nothing -> ""
@@ -56,10 +56,10 @@ instance Show LispVal where show = showVal
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
 
-data Func = Func { params  :: [String]
-                 , vararg  :: (Maybe String)
-                 , body    :: [LispVal]
-                 , closure :: Env }
+data Func = Func { fParams  :: [String]
+                 , fVararg  :: (Maybe String)
+                 , fBody    :: [LispVal]
+                 , fClosure :: Env }
 
 data LispError = NumArgs Integer [LispVal]
                | TypeMismatch String LispVal
