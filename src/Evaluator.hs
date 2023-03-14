@@ -39,14 +39,14 @@ eval  env (List (func : args)) = do {f <- eval env func; argVals <- mapM (eval e
 eval _env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 makeFunc :: Maybe String -> Env -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
-makeFunc varArgs env params body = return $ Func (map show params) varArgs body env
+makeFunc varArgs env params body = return $ NonPrimFunc $ Func (map show params) varArgs body env
 makeNormalFunc = makeFunc Nothing
 makeVarArgs :: LispVal -> Env -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
 makeVarArgs = makeFunc . Just . show
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
-apply (Func params varargs body closure) args =
+apply (NonPrimFunc ( Func params varargs body closure)) args =
   if num params /= num args && varargs == Nothing
   then throwError $ NumArgs (num params) args
   else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody

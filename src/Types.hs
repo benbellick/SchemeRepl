@@ -1,4 +1,4 @@
-module Types(LispVal(..), LispError(..), ThrowsError, Env, nullEnv)  where
+module Types(LispVal(..), Func(..), LispError(..), ThrowsError, Env, nullEnv)  where
 
 import Data.IORef
 import Text.Parsec (ParseError)
@@ -25,13 +25,14 @@ data LispVal = Atom String
              | String String
              | Bool Bool
              | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
-             | Func { params  :: [String]
-                    , vararg  :: (Maybe String)
-                    , body    :: [LispVal]
-                    , closure :: Env }
-            | IOFunc ([LispVal] -> IOThrowsError LispVal)
-            | Port Handle
+             | NonPrimFunc Func 
+             | IOFunc ([LispVal] -> IOThrowsError LispVal)
+             | Port Handle
 
+data Func = Func { params  :: [String]
+                 , vararg  :: (Maybe String)
+                 , body    :: [LispVal]
+                 , closure :: Env }
 
 data LispError = NumArgs Integer [LispVal]
                | TypeMismatch String LispVal

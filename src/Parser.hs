@@ -152,7 +152,7 @@ showVal (Float f) = show f
 showVal (Complex c) = show c
 showVal (Char c) = show c
 showVal (PrimitiveFunc _) = "<primitive>"
-showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
+showVal (NonPrimFunc Func {params = args, vararg = varargs, body = body, closure = env}) =
   "(lambda (" ++ unwords (map show args) ++
     (case varargs of
        Nothing -> ""
