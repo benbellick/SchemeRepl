@@ -1,11 +1,9 @@
 import Types
-import Parser
 import Reader
 import Evaluator
 import EnvManage
 import System.Environment
 import System.IO
-import Text.ParserCombinators.Parsec hiding (spaces)
 import Control.Monad.Except
 
 flushStr :: String -> IO ()

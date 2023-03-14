@@ -1,6 +1,6 @@
 module Error(trapError, extractValue) where
 
-import Parser (LispVal)
+import Parser
 import Types
 import Control.Monad.Except
 
@@ -20,3 +20,4 @@ trapError action = catchError action (return . show)
 
 extractValue :: ThrowsError a -> a
 extractValue (Right x) = x
+extractValue (Left  x) = error $ show x

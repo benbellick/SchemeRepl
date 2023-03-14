@@ -2,8 +2,6 @@
 module Evaluator (eval, primitiveBindings) where
 
 import Types
-import Parser
-import Error
 import EnvManage
 import Control.Monad.Except
 import System.IO
@@ -114,9 +112,12 @@ primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc IOFunc)       ioP
 applyProc :: [LispVal] -> IOThrowsError LispVal
 applyProc [func, List args] = apply func args
 applyProc (func : args) = apply func args
+applyProc v = throwError $ NumArgs 1 v
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
+makePort _    [v] = throwError $ TypeMismatch "expected file name" v
+makePort _    v   = throwError $ NumArgs 1 v
 
 closePort :: [LispVal] -> IOThrowsError LispVal
 closePort [Port port] = liftIO $ hClose port >> (return $ Bool True)
@@ -125,19 +126,30 @@ closePort _           = return $ Bool False
 readProc :: [LispVal] -> IOThrowsError LispVal
 readProc [] = readProc [Port stdin]
 readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . readExpr
+readProc [v] = throwError $ TypeMismatch "expected Port" v
+readProc v@(_:_:_) = throwError $ NumArgs 1 v
 
 writeProc :: [LispVal] -> IOThrowsError LispVal
 writeProc [obj] = writeProc [obj, Port stdout]
 writeProc [obj, Port port] = liftIO $ hPrint port obj >> (return $ Bool True)
+writeProc v@(_:_:_:_) = throwError $ NumArgs 1 v {- extend numargs to handle multiple? -}
+writeProc [] = throwError $ NumArgs 1 []
+writeProc [_, badPort] = throwError $ TypeMismatch "expected second arg of type Port" badPort
 
 readContents :: [LispVal] -> IOThrowsError LispVal
 readContents [String filename] = liftM String $ liftIO $ readFile filename
+readContents [badArg] = throwError $ TypeMismatch "expected single file name" badArg
+readContents v@[] = throwError $ NumArgs 1 v
+readContents v@(_:_:_) = throwError $ NumArgs 1 v 
 
 load :: String -> IOThrowsError [LispVal]
 load filename = (liftIO $ readFile filename) >>= liftThrows . readExprList
 
 readAll :: [LispVal] -> IOThrowsError LispVal
 readAll [String filename] = liftM List $ load filename
+readAll [badArg] = throwError $ TypeMismatch "expected single file name" badArg
+readAll v@[] = throwError $ NumArgs 1 v
+readAll v@(_:_:_) = throwError $ NumArgs 1 v 
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinop _ [] = throwError $ NumArgs 2 []
@@ -240,6 +252,7 @@ eqv [(List arg1), (List arg2)]             = return $ Bool $ (length arg1 == len
      where eqvPair (x1, x2) = case eqv [x1, x2] of
                                 Left _err -> False
                                 Right (Bool val) -> val
+                                Right _ -> False {- really should throw error -}
 eqv [_, _]                                 = return $ Bool False
 eqv badArgList                             = throwError $ NumArgs 2 badArgList
 
@@ -258,6 +271,7 @@ equal [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) 
          where eqvPair (x1, x2) = case equal [x1, x2] of
                                     Left _err -> False
                                     Right (Bool val) -> val
+                                    Right _ -> False {- really should throw error -}
                                     
 equal [arg1, arg2] = do
       primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) 
@@ -283,7 +297,7 @@ cond env ((List x):xs) = do
 cond _env badArg = throwError $ TypeMismatch "list of lists" $ List badArg
 
 caseSch :: Env -> [LispVal] -> LispVal -> IOThrowsError LispVal
-caseSch env [] _ = throwError $ Default "No viable alternative in case"
+caseSch _ [] _ = throwError $ Default "No viable alternative in case"
 caseSch env [List ((Atom "else"):xs)] _ = do
   results <- mapM (eval env) xs
   return $ last results
@@ -295,4 +309,6 @@ caseSch env (x:xs) targetVal = do
     Bool True -> do
       evals <- mapM (eval env) $ tail xs
       return $ last evals
+    _ -> throwError $ Default "Implementation error: eqv should only return #t or #f"
+    
 

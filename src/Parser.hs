@@ -71,6 +71,7 @@ parseNondecNumber = do
             'o' -> fst . head $ readOct num {-- this seems unsafe --}
             'x' -> fst . head $ readHex num {-- this seems unsafe --}
             'b' -> fst . head $ readBin num {-- this seems unsafe --}
+            _   -> error "unknown base for number representation"
 
 extractInteger :: LispVal -> Integer
 extractInteger (Number n) = n
@@ -152,7 +153,7 @@ showVal (Float f) = show f
 showVal (Complex c) = show c
 showVal (Char c) = show c
 showVal (PrimitiveFunc _) = "<primitive>"
-showVal (NonPrimFunc Func {params = args, vararg = varargs, body = body, closure = env}) =
+showVal (NonPrimFunc Func {params = args, vararg = varargs}) =
   "(lambda (" ++ unwords (map show args) ++
     (case varargs of
        Nothing -> ""
