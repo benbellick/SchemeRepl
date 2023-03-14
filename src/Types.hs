@@ -29,6 +29,33 @@ data LispVal = Atom String
              | IOFunc ([LispVal] -> IOThrowsError LispVal)
              | Port Handle
 
+showVal :: LispVal -> String
+showVal (String s) = "\"" ++ s ++ "\""
+showVal (Atom a ) = a
+showVal (Number n) = show n
+showVal (Bool True) = "#t"
+showVal (Bool False) = "#f"
+showVal (List l) = "(" ++ unwordsList l ++ ")"
+showVal (DottedList h t) = "(" ++ unwordsList h ++ " . " ++ showVal t ++ ")"
+showVal (Rational r) = show r
+showVal (Float f) = show f
+showVal (Complex c) = show c
+showVal (Char c) = show c
+showVal (PrimitiveFunc _) = "<primitive>"
+showVal (NonPrimFunc Func {params = args, vararg = varargs}) =
+  "(lambda (" ++ unwords (map show args) ++
+    (case varargs of
+       Nothing -> ""
+       Just arg -> " . " ++ arg
+    ) ++ ") ... )"
+showVal (IOFunc _) = "<IO primitive>"
+showVal (Port _) = "<IO port>"
+
+instance Show LispVal where show = showVal
+
+unwordsList :: [LispVal] -> String
+unwordsList = unwords . map showVal
+
 data Func = Func { params  :: [String]
                  , vararg  :: (Maybe String)
                  , body    :: [LispVal]

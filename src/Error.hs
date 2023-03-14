@@ -1,6 +1,5 @@
 module Error(trapError, extractValue) where
 
-import Parser
 import Types
 import Control.Monad.Except
 
