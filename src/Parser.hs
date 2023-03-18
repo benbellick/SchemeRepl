@@ -1,7 +1,6 @@
 module Parser (parseExpr, LispVal(..), spaces) where
 
 import Text.ParserCombinators.Parsec hiding (spaces)
-import Control.Monad
 import Numeric
 import Data.Char
 import Data.Complex
@@ -22,11 +21,11 @@ parseChar = do
     return $ charLitToChar x
             
 charLitToChar :: String -> LispVal
-charLitToChar cs = Char 
-    (case (map toLower cs) of
+charLitToChar cs = Char $
+    case map toLower cs of
         "space" -> ' '
         "newline" -> '\n'
-        _ -> head cs) {--throw error when more than one extra??--}
+        _ -> head cs {--throw error when more than one extra??--}
 
 parseString :: Parser LispVal
 parseString = do
@@ -58,7 +57,7 @@ parseAtom = do
         _    -> Atom atom
 
 parseDecNumber :: Parser LispVal
-parseDecNumber = liftM (Number . read) $ many1 digit
+parseDecNumber =  Number . read <$> many1 digit
 
 parseNondecNumber :: Parser LispVal
 parseNondecNumber = do
@@ -82,7 +81,7 @@ parseRational = do
     x <- parseDecNumber
     _ <- char '/'
     y <- parseDecNumber
-    return . Rational $ (extractInteger x) % (extractInteger y)
+    return . Rational $ extractInteger x % extractInteger y
 
 parseFloat :: Parser LispVal
 parseFloat = do
@@ -102,7 +101,7 @@ parseComplex = do
     _ <- char '+'
     y <- parseFloat <|> parseDecNumber
     _ <- char 'i'
-    return $ Complex $ (extractFloat x) :+ (extractFloat y)
+    return $ Complex $ extractFloat x :+ extractFloat y
 
 parseNumber :: Parser LispVal
 parseNumber = try parseComplex 
@@ -124,7 +123,7 @@ parseExpr = parseNumber
             return x
 
 parseList :: Parser LispVal
-parseList = liftM List $ sepBy parseExpr spaces
+parseList =  List <$> sepBy parseExpr spaces
 
 parseDottedList :: Parser LispVal
 parseDottedList = do

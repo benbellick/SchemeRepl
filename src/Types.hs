@@ -57,7 +57,7 @@ unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
 
 data Func = Func { fParams  :: [String]
-                 , fVararg  :: (Maybe String)
+                 , fVararg  :: Maybe String
                  , fBody    :: [LispVal]
                  , fClosure :: Env }
 

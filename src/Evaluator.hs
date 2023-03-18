@@ -16,7 +16,7 @@ eval _env val@(Complex _) = return val
 eval _env val@(Char _) = return val
 eval _env val@(Bool _) = return val
 eval  env (Atom var) = getVar env var
-eval  env (List [Atom "load", String filename]) = load filename >>= liftM last . mapM (eval env)
+eval  env (List [Atom "load", String filename]) = load filename >>= fmap last . mapM (eval env)
 eval _env (List [Atom "quote", val]) = return val
 eval  env (List [Atom "if", condition, consq, alt]) = do
   result <- eval env condition
@@ -53,7 +53,7 @@ apply (NonPrimFunc ( Func params varargs body closure)) args =
   else (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
   where num = toInteger . length
         remainingArgs = drop (length params) args
-        evalBody env = liftM last $ mapM (eval env) body
+        evalBody env = fmap last $ mapM (eval env) body
         bindVarArgs arg env = case arg of
           Just argName -> liftIO $ bindVars env [(argName, List $ remainingArgs)]
           Nothing -> return env
@@ -119,7 +119,7 @@ applyProc (func : args) = apply func args
 applyProc v = throwError $ NumArgs 1 v
 
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
-makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
+makePort mode [String filename] = fmap Port $ liftIO $ openFile filename mode
 makePort _    [v] = throwError $ TypeMismatch "expected file name" v
 makePort _    v   = throwError $ NumArgs 1 v
 
@@ -141,7 +141,7 @@ writeProc [] = throwError $ NumArgs 1 []
 writeProc [_, badPort] = throwError $ TypeMismatch "expected second arg of type Port" badPort
 
 readContents :: [LispVal] -> IOThrowsError LispVal
-readContents [String filename] = liftM String $ liftIO $ readFile filename
+readContents [String filename] = fmap String $ liftIO $ readFile filename
 readContents [badArg] = throwError $ TypeMismatch "expected single file name" badArg
 readContents v@[] = throwError $ NumArgs 1 v
 readContents v@(_:_:_) = throwError $ NumArgs 1 v 
@@ -150,7 +150,7 @@ load :: String -> IOThrowsError [LispVal]
 load filename = (liftIO $ readFile filename) >>= liftThrows . readExprList
 
 readAll :: [LispVal] -> IOThrowsError LispVal
-readAll [String filename] = liftM List $ load filename
+readAll [String filename] = List <$> load filename
 readAll [badArg] = throwError $ TypeMismatch "expected single file name" badArg
 readAll v@[] = throwError $ NumArgs 1 v
 readAll v@(_:_:_) = throwError $ NumArgs 1 v 
@@ -169,7 +169,7 @@ boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> Thro
 boolBinop unpacker op args = if length args /= 2 
                              then throwError $ NumArgs 2 args
                              else do
-                                      left <- unpacker $ args !! 0
+                                      left <- unpacker $ head args
                                       right <- unpacker $ args !! 1
                                       return $ Bool $ left `op` right
 numBoolBinop :: (Integer -> Integer -> Bool) -> [LispVal] -> ThrowsError LispVal
@@ -187,7 +187,7 @@ unpackNum (Number n) = return n
 unpackNum (String n) = let parsed = reads n :: [(Integer, String)] in --only reads integer, not gen number
     if null parsed
         then throwError $ TypeMismatch "number" $ String n
-        else return $ fst $ parsed !! 0
+        else return $ fst $ head parsed
 unpackNum (List [n]) = unpackNum n
 unpackNum notNum = throwError $ TypeMismatch "number" notNum
 
@@ -246,13 +246,13 @@ cons [x1, x2] = return $ DottedList [x1] x2
 cons badArgList = throwError $ NumArgs 2 badArgList
 
 eqv :: [LispVal] -> ThrowsError LispVal
-eqv [(Bool arg1), (Bool arg2)]             = return $ Bool $ arg1 == arg2
-eqv [(Number arg1), (Number arg2)]         = return $ Bool $ arg1 == arg2
-eqv [(String arg1), (String arg2)]         = return $ Bool $ arg1 == arg2
-eqv [(Atom arg1), (Atom arg2)]             = return $ Bool $ arg1 == arg2
-eqv [(DottedList xs x), (DottedList ys y)] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
-eqv [(List arg1), (List arg2)]             = return $ Bool $ (length arg1 == length arg2) && 
-                                                             (all eqvPair $ zip arg1 arg2)
+eqv [Bool arg1, Bool arg2]             = return $ Bool $ arg1 == arg2
+eqv [Number arg1, Number arg2]         = return $ Bool $ arg1 == arg2
+eqv [String arg1, String arg2]         = return $ Bool $ arg1 == arg2
+eqv [Atom arg1, Atom arg2]             = return $ Bool $ arg1 == arg2
+eqv [DottedList xs x, DottedList ys y] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
+eqv [List arg1, List arg2]             = return $ Bool $ (length arg1 == length arg2) && 
+                                                             all eqvPair ( zip arg1 arg2)
      where eqvPair (x1, x2) = case eqv [x1, x2] of
                                 Left _err -> False
                                 Right (Bool val) -> val
@@ -267,21 +267,21 @@ unpackEquals arg1 arg2 (AnyUnpacker unpacker) =
              do unpacked1 <- unpacker arg1
                 unpacked2 <- unpacker arg2
                 return $ unpacked1 == unpacked2
-        `catchError` (const $ return False)
+        `catchError` const ( return False)
 
 equal :: [LispVal] -> ThrowsError LispVal
-equal [(List arg1), (List arg2)] = return $ Bool $ (length arg1 == length arg2) &&
-                                                   (all eqvPair $ zip arg1 arg2)
+equal [List arg1, List arg2] = return $ Bool $ (length arg1 == length arg2) &&
+                                                   all eqvPair (zip arg1 arg2)
          where eqvPair (x1, x2) = case equal [x1, x2] of
                                     Left _err -> False
                                     Right (Bool val) -> val
                                     Right _ -> False {- really should throw error -}
                                     
 equal [arg1, arg2] = do
-      primitiveEquals <- liftM or $ mapM (unpackEquals arg1 arg2) 
+      primitiveEquals <-  or <$> mapM (unpackEquals arg1 arg2) 
                          [AnyUnpacker unpackNum, AnyUnpacker unpackStr, AnyUnpacker unpackBool]
       eqvEquals <- eqv [arg1, arg2]
-      return $ Bool $ (primitiveEquals || getBool eqvEquals)
+      return $ Bool (primitiveEquals || getBool eqvEquals)
       where getBool (Bool x) = x
             getBool _ = False {- really should throw error -}
 equal badArgList = throwError $ NumArgs 2 badArgList
@@ -293,7 +293,7 @@ cond env [List ((Atom "else"):xs)] = do
   results <- mapM (eval env) xs
   return $ last results
 cond env ((List x):xs) = do
-  result <- (eval env) . head $ x
+  result <- eval env . head $ x
   case result of
     Bool True -> do
       evals <- mapM (eval env) $ tail x
