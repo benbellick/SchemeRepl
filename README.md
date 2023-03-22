@@ -1,4 +1,4 @@
-# SchemeCompiler
+# Scheme REPL / Interpreter
 
 This is a basic Scheme REPL which follows [this tutorial](https://en.wikibooks.org/wiki/Write_Yourself_a_Scheme_in_48_Hours).
 
